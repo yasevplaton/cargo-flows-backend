@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from shapely.geometry import LineString
 
 # устанавливаем переменную с директорией, в которой лежат данные
-dataDir = "C:\\My_work\\dissertation\\project\\data\\"
+dataDir = "C:\\My_work\\dissertation\\github\\linear-cartodiagram-backend\\data\\"
 
 # читаем файлы c дорогами (линиями), точками
 roads = gpd.read_file(dataDir + "shp\\roads.shp")
