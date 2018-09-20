@@ -1,3 +1,5 @@
+''' Additional functions'''
+
 import pandas as pd
 from shapely.geometry import LineString
 
@@ -69,7 +71,11 @@ def to_matrix_array(long_table_with_name, look_up_table):
     return matrix_array
 
 
-''' Other functions'''
+''' 
+
+Other functions
+
+'''
 
 
 # function to reverse line geometry
