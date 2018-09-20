@@ -139,6 +139,9 @@ for l in range(len(geo_edges)):
     if first_node[0] != x_src or first_node[1] != y_src:
         geo_edges.loc[l, 'geometry'] = tools.reverse_geometry_line(line_geom)
 
+# reproject edges to 4326
+geo_edges = geo_edges.to_crs({'init': 'epsg:4326'})
+
 # write geodataframe to geojson
 path_to_file = os.path.join(data_dir, 'edges.geojson')
 with open(path_to_file, 'w') as f:
