@@ -1,122 +1,89 @@
-## Скрипт для преобразования массива матриц корреспондеции в атрибуты ребер мультиграфа на примере реальных данных
-# без сегментации дорог
 
+'''
+
+The script for the distribution of data from the table of flows of goods through the transport network graph
+
+'''
+
+
+# import necessary modules
 import pandas as pd
 import geopandas as gpd
 import networkx as nx
-import matplotlib.pyplot as plt
-from shapely.geometry import LineString
+import os.path
+from tools import tools
 
-# устанавливаем переменную с директорией, в которой лежат данные
-dataDir = "C:\\My_work\\dissertation\\github\\linear-cartodiagram-backend\\data\\"
+# set data directory
+data_dir = "data/"
 
-# читаем файлы c дорогами (линиями), точками
-roads = gpd.read_file(dataDir + "shp\\roads.shp")
-points = gpd.read_file(dataDir + "shp\\citiesJunctions.shp")
+# read files
+roads = gpd.read_file(os.path.join(data_dir, "shp/roads.shp"))
+points = gpd.read_file(os.path.join(data_dir, "shp/citiesJunctions.shp"))
+lut = pd.read_csv(os.path.join(data_dir, "look_up_table.csv"), sep=",", index_col="OBJECTID")
+flow_table = pd.read_csv(os.path.join(data_dir, "long_table.csv"), sep=",")
 
-# считываем матрицы корреспонденции - 3 показателя - перевозка шоколада, бананов и апельсинов
-chocolate = pd.read_csv(dataDir + "chocolateReal.csv", sep=';')
-bananas = pd.read_csv(dataDir + "bananasReal.csv", sep=';')
-oranges = pd.read_csv(dataDir + "orangesReal.csv", sep=';')
+# convert flow table to array of correspondence matrixes
+matrix_array = tools.to_matrix_array(flow_table, lut)
 
-# записываем считанные матрицы в массив, чтобы можно было затем итерироваться по ним
-matrix = [chocolate, bananas, oranges]
-
-# определяем новые поля в таблице линий, в которых будут храниться идентификаторы соответствующих им узлов
+# add additional fields to roads table
 roads["src"] = 0
 roads["dest"] = 0
-# добавляем поле с длиной каждой линии (в единицах исходной СК - должна быть не географическая)
 roads["length"] = roads.length
 
-
-# # заполняем столбцы src и dest идентификаторами соответствующих узлов
-
-# определяем переменную цикла
+# bind points and roads
 i = 0
-# для каждой линии:
 while i < len(roads):
-    # записываем в переменную var булеву колонку (Series) пересечения линии с точками (если пересечение есть - True)
     var = points.geometry.intersects(roads.loc[i, 'geometry'])
-    # фильтруем точки по значениям в переменной var - получаем OBJECTID только тех точки, которые пересекаются с линией
     nodes = points.OBJECTID[var.values]
-    # записываем в нужные ячейки таблицы линий значения идентификаторов узлов, соответствующих линии
     roads.loc[i, "src"] = nodes.iloc[0]
     roads.loc[i, "dest"] = nodes.iloc[1]
-    # инкрементируем переменную цикла
     i += 1
 
-# создаем массив из названий показателей, чтобы можно было итерироваться по ним
-goods = ["chocolate", "bananas", "oranges"]
+# collect types of goods
+goods = []
+for good in matrix_array:
+    goods.append(good['type'])
 
-# создаем пустой мультиграф MG
+# create oriented multigraph and fill it with edges from roads
 MG = nx.MultiGraph()
-# # заполняем мультиграф ребрами из lines
-# для каждого показателя:
+
 for g, ord in zip(goods, range(len(goods))):
-    # создаем временный граф на основе таблицы lines
     G = nx.from_pandas_edgelist(roads, source="src", target="dest", edge_attr=["ID_line", "length"])
-    # к каждому ребру добавляем исходное для расчетов значение показателя, равное нулю
     nx.set_edge_attributes(G, 0, g)
-    # к каждому ребру добавляем значение порядка отрисовки (от 0 до n-1, где n - число показателей)
     nx.set_edge_attributes(G, ord, 'ORD')
-    # добавляем ребра с атрибутами из графа G в граф MG
     MG.add_edges_from(G.edges.data())
-    # очищаем временный граф G
     G.clear()
 
-# конвертируем мультиграф в ориентированный мультиграф
-# на выходе: число ребер = число линий * количество показателей * 2
 net = MG.to_directed()
 
-
-# заполняем атрибуты принадлежности точки к городу узлов графа
-
-# создаем пустой словарь
+# determine the affiliation of a node to a city
 values = {}
-# для каждой точки
 for n in range(len(points)):
-    # заполняем словарь по структуре: {OBJECTID точки: OBJECTID города}
     values[points.OBJECTID[n]] = points.NAME[n]
 
-# добавляем к узлам графа атрибут city и заполняем его на основе словаря values
 nx.set_node_attributes(net, values, 'city')
 
-# заполняем атрибуты ребер кумулятивными значениями показателей
-
-# для каждого узла
+# distribute values of flows of goods on graph's edges
 for s, ds in net.nodes.items():
-    # если в узле есть город
+    # if source and destination nodes are not junctions
     if ds['city'] != 'junction':
-        # отбираем последовательно каждый узел графа
         for t, dt in net.nodes.items():
-            # если в узле есть город
             if dt['city'] != 'junction':
-                # строим самый короткий по расстоянию маршрут между текущими узлами, получаем массив узлов
+                # create the shortest path between source and destination
                 route = nx.shortest_path(net, source=s, target=t, weight="length")
-                # создаем вспомогательный линейный граф H на основе полученного массива узлов
+                # create path graph from found nodes
                 H = nx.path_graph(route)
-                # для каждого ребра в H:
                 for e in H.edges:
-                    # устанавливаем начальное значение счетчика идентификаторов ребер в пределах мультиребра
                     j = 0
-                    # для каждого показателя и соответсвующей ему матрицы корреспонденции:
-                    for g, m in zip(goods, matrix):
-                        # так как nx.shortest_path строит маршрут также и между одинаковыми узлами (s = t),
-                        # ставим условие, что учитывам только маршруты между разными узлами (s != t)
+                    for g, m in zip(goods, matrix_array):
+                        # if source node is not destination node
                         if s != t:
-                            # прибавляем к текущему значению показателя у ребра значение ячейки в соответствующей
-                            # матрице корреспонденции для текущей пары узлов s, t
-                            net.edges[e[0], e[1], j][g] = net.edges[e[0], e[1], j][g] + m.iloc[s - 1, t]
-                            # инкрементируем значение счетчика идентификаторов ребер в пределах мультиребра
+                            # increase value of specific type of good by value from matrix of this type of good
+                            net.edges[e[0], e[1], j][g] = net.edges[e[0], e[1], j][g] + m['data'].loc[s, t]
                             j += 1
-                # очищаем временный граф H
                 H.clear()
 
-
-# создание фрейма данных на основе данных ребер полученного графа
-
-# определение пустых списков (будущих полей фрейма)
-
+# create dataframe from multigraph
 sources = []
 destination = []
 id_line = []
@@ -124,7 +91,6 @@ types = []
 values = []
 order = []
 
-# заполнение списков данными ребер
 for n1, n2, dattr in net.edges.data():
     sources.append(n1)
     destination.append(n2)
@@ -135,7 +101,6 @@ for n1, n2, dattr in net.edges.data():
             types.append(k)
             values.append(v)
 
-# получение финального словаря, на основе которого будет создаваться dataframe
 datastore = {'src': sources,
              'dest': destination,
              'ID_line': id_line,
@@ -143,69 +108,39 @@ datastore = {'src': sources,
              'value': values,
              'order': order}
 
-# создание фрейма данных
-edgesDF = pd.DataFrame(datastore, columns=['src', 'dest', 'ID_line', 'type', 'value', 'order'])
+edges_df = pd.DataFrame(datastore, columns=['src', 'dest', 'ID_line', 'type', 'value', 'order'])
+edges_df = edges_df.sort_values(by=['ID_line', 'src', 'dest']).copy()
+edges_df.index = range(len(edges_df))
+edges_df['dir'] = 0
+edges_df = edges_df[['src', 'dest', 'ID_line', 'type', 'value', 'dir', 'order']].copy()
 
-# сортировка датафрейма по идентификатору линии, затем по ID узла-источника, затем по ID узла-назначения
-edgesDF = edgesDF.sort_values(by=['ID_line', 'src', 'dest']).copy()
-
-# переопределяем индексы строк (от 0 до общего количества ребер)
-edgesDF.index = range(len(edgesDF))
-
-# добавляем столбец, кодирующие направление перемещения груза, сначала заполняем его нулями
-edgesDF['dir'] = 0
-
-# определяем новый порядок столбцов - чтобы dir стоял перед order
-edgesDF = edgesDF[['src', 'dest', 'ID_line', 'type', 'value', 'dir', 'order']].copy()
-
-# заполняем столбец dir кодами направления перемещения 1 и -1
-for s in edgesDF.index:
-    var = edgesDF.src[s] - edgesDF.dest[s]
+# fill direction column with ids of direction
+for s in edges_df.index:
+    var = edges_df.src[s] - edges_df.dest[s]
     if var < 0:
-        edgesDF.loc[s, 'dir'] = 1
+        edges_df.loc[s, 'dir'] = 1
     else:
-        edgesDF.loc[s, 'dir'] = -1
+        edges_df.loc[s, 'dir'] = -1
 
-# присоединяем геометрию линий на основе ключевого поля идентификатора линии
-roadGeom = roads[['ID_line', 'geometry']]
-edgesDF = edgesDF.merge(roadGeom, on='ID_line')
+# create geodataframe by merging dataframe and roads geometry
+road_geometry = roads[['ID_line', 'geometry']]
+edges_df = edges_df.merge(road_geometry, on='ID_line')
+geo_edges = gpd.GeoDataFrame(edges_df, crs=roads.crs, geometry='geometry')
 
-# преобразуем полученный dataframe в geodataframe
-geoEdges = gpd.GeoDataFrame(edgesDF, crs=roads.crs, geometry='geometry')
+# reverse order of nodes in line if a first node in line is not a source node
+for l in range(len(geo_edges)):
+    src_id = geo_edges.src[l]
+    src = points[(points.OBJECTID == src_id)]
+    src_geom = src.geometry.iloc[0]
+    x_src = src_geom.x
+    y_src = src_geom.y
+    line_geom = geo_edges.geometry.iloc[l]
+    first_node = line_geom.coords[0]
+    if first_node[0] != x_src or first_node[1] != y_src:
+        geo_edges.loc[l, 'geometry'] = tools.reverse_geometry_line(line_geom)
 
-# функция обратной сортировки последовательности узлов линии
-# аргумент функции - объект LineString, возвращает объект LineString с обратной последовательностью узлов
-
-def reverseGeometryLine(line):
-    # создаем пустой список,
-    coordArr = []
-    # куда записываем координаты узлов линии в исходном порядке
-    for i in line.coords:
-        coordArr.append(i)
-    # создаем новый список,
-    revArr = []
-    # куда записываем координаты узлов линии в обратном порядке
-    for i in reversed(coordArr):
-        revArr.append(i)
-    # преобразуем полученный список координат в объект LineString
-    revLine = LineString(revArr)
-    # и возвращаем его в качестве результата функции
-    return(revLine)
-
-
-# изменение порядка координат узлов линии в случае, если координаты исходного узла не совпадают с координатами
-# точки-источника
-for l in range(len(geoEdges)):
-    srcID = geoEdges.src[l]
-    src = points[(points.OBJECTID == srcID)]
-    srcGeom = src.geometry.iloc[0]
-    xSource = srcGeom.x
-    ySource = srcGeom.y
-    lineGeom = geoEdges.geometry.iloc[l]
-    firstNode = lineGeom.coords[0]
-    if firstNode[0] != xSource or firstNode[1] != ySource:
-        geoEdges.loc[l, 'geometry'] = reverseGeometryLine(lineGeom)
-
-
-# записываем geodataframe в шейп-файл
-geoEdges.to_file(dataDir + "shp\\edges.shp", 'ESRI Shapefile')
+# write geodataframe to geojson
+path_to_file = os.path.join(data_dir, 'edges.geojson')
+with open(path_to_file, 'w') as f:
+    f.write(geo_edges.to_json())
+    f.close()

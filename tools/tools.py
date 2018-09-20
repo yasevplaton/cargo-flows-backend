@@ -1,7 +1,5 @@
 import pandas as pd
-import geopandas as gpd
-
-data_dir = "C:\\My_work\\dissertation\\github\\linear-cartodiagram-backend\\data\\"
+from shapely.geometry import LineString
 
 
 ''' Block of auxiliary functions and operations to convert initial data about flow of
@@ -146,9 +144,10 @@ def fill_matrix(good_table, empty_matrix):
     return filled_matrix
 
 
-# function to convert long table to array of matrixes)
-def to_matrix_array(long_table_with_id):
+# function to convert long table to array of matrixes
+def to_matrix_array(long_table_with_name, look_up_table):
     matrix_array = []
+    long_table_with_id = create_long_table_with_id(long_table_with_name, look_up_table)
     empty_matrix = create_empty_matrix(long_table_with_id)
     goods_array = long_table_with_id.type.unique()
 
@@ -164,3 +163,17 @@ def to_matrix_array(long_table_with_id):
         good_id += 1
 
     return matrix_array
+
+
+''' Other functions'''
+
+# function to reverse line geometry
+def reverse_geometry_line(line):
+    coord_arr = []
+    for i in line.coords:
+        coord_arr.append(i)
+    rev_arr = []
+    for i in reversed(coord_arr):
+        rev_arr.append(i)
+    rev_line = LineString(rev_arr)
+    return(rev_line)
