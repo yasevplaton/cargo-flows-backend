@@ -127,34 +127,40 @@ def create_long_table_with_id(long_table_with_name, look_up_table):
     return long_table_with_id
 
 
-# function to convert long table (with ids of nodes to array of matrixes)
-def to_matrix_array(long_table_with_id):
-    matrix_array = []
-    return matrix_array
-
-def get_unique_values(column):
-
-    return unique_array
-
-def create_empty_matrix(src_id_array, dest_id_array):
-
+# function to create empty matrix on base of nodes' ids
+def create_empty_matrix(long_table_with_id):
+    src_id_array = long_table_with_id.src.unique()
+    src_id_array.sort()
+    dest_id_array = long_table_with_id.dest.unique()
+    dest_id_array.sort()
+    empty_matrix = pd.DataFrame(data=0, index=src_id_array, columns=dest_id_array)
     return empty_matrix
 
-def fill_matrix():
+
+# function to fill empty matrix of good with values
+def fill_matrix(good_table, empty_matrix):
+    filled_matrix = empty_matrix.copy()
+    for index, tuple in good_table.iterrows():
+        filled_matrix.loc[tuple.src, tuple.dest] = tuple.value
 
     return filled_matrix
 
 
-# read data
-lut = pd.read_csv(data_dir + 'look_up_table.csv', sep=',', index_col='OBJECTID')
-long_table = pd.read_csv(data_dir + 'long_table.csv', sep=',')
+# function to convert long table to array of matrixes)
+def to_matrix_array(long_table_with_id):
+    matrix_array = []
+    empty_matrix = create_empty_matrix(long_table_with_id)
+    goods_array = long_table_with_id.type.unique()
 
-# match node name with node id
-long_table_with_id = create_long_table_with_id(long_table, lut)
+    good_id = 0
+    for good in goods_array:
+        good_table = long_table_with_id[long_table_with_id.type == good]
+        good_matrix = fill_matrix(good_table, empty_matrix)
+        matrix_array.append({
+            'id': good_id,
+            'type': good,
+            'data': good_matrix
+        })
+        good_id += 1
 
-
-
-
-
-
-
+    return matrix_array
