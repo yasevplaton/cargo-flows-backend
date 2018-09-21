@@ -12,54 +12,77 @@ import geopandas as gpd
 import os.path
 from tools import tools
 
-# set data directory
-data_dir = "data/"
+from flask import Flask, request
 
-# read files
-roads = gpd.read_file(os.path.join(data_dir, "shp/roads.shp"))
-points = gpd.read_file(os.path.join(data_dir, "shp/citiesJunctions.shp"))
-lut = pd.read_csv(os.path.join(data_dir, "look_up_table.csv"), sep=",", index_col="OBJECTID")
-flow_table = pd.read_csv(os.path.join(data_dir, "long_table.csv"), sep=",")
+app = Flask(__name__)
 
-# convert flow table to array of correspondence matrixes
-matrix_array = tools.to_matrix_array(flow_table, lut)
 
-# add additional fields to roads table
-roads["src"] = 0
-roads["dest"] = 0
-roads["length"] = roads.length
+@app.route('/upload_data', methods=["GET", "POST"])
+def distribute_data_on_graph():
 
-# bind points to roads
-roads = tools.bind_points_to_lines(points, roads)
+    if request.method == "POST":
+        init_table = request.files['CSVGoods']
 
-# collect types of goods
-goods = tools.collect_goods_types(matrix_array)
+        # set data directory
+        data_dir = "data/"
 
-# create oriented multigraph and fill it with edges from roads
-net = tools.create_graph(goods, roads)
+        # read files
+        roads = gpd.read_file(os.path.join(data_dir, "shp/roads.shp"))
+        points = gpd.read_file(os.path.join(data_dir, "shp/citiesJunctions.shp"))
+        lut = pd.read_csv(os.path.join(data_dir, "look_up_table.csv"), sep=",", index_col="OBJECTID")
+        flow_table = pd.read_csv(init_table, sep=",")
 
-# determine the affiliation of a node to a city
-net = tools.add_city_affiliation_attr(points, net)
+        # convert flow table to array of correspondence matrixes
+        matrix_array = tools.to_matrix_array(flow_table, lut)
 
-# distribute values of flows of goods on graph's edges
-net = tools.distribute_values_on_graph(net, goods, matrix_array)
+        # add additional fields to roads table
+        roads["src"] = 0
+        roads["dest"] = 0
+        roads["length"] = roads.length
 
-# create dataframe from multigraph
-edges_df = tools.create_dataframe_from_graph(net, goods)
+        # bind points to roads
+        roads = tools.bind_points_to_lines(points, roads)
 
-# create geodataframe by merging dataframe and roads geometry
-road_geometry = roads[['ID_line', 'geometry']]
-edges_df = edges_df.merge(road_geometry, on='ID_line')
-geo_edges = gpd.GeoDataFrame(edges_df, crs=roads.crs, geometry='geometry')
+        # collect types of goods
+        goods = tools.collect_goods_types(matrix_array)
 
-# reverse order of nodes in line if a first node in line is not a source node
-geo_edges = tools.reverse_nodes_order(geo_edges, points)
+        # create oriented multigraph and fill it with edges from roads
+        net = tools.create_graph(goods, roads)
 
-# reproject edges to 4326
-geo_edges = geo_edges.to_crs({'init': 'epsg:4326'})
+        # determine the affiliation of a node to a city
+        net = tools.add_city_affiliation_attr(points, net)
+
+        # distribute values of flows of goods on graph's edges
+        net = tools.distribute_values_on_graph(net, goods, matrix_array)
+
+        # create dataframe from multigraph
+        edges_df = tools.create_dataframe_from_graph(net, goods)
+
+        # create geodataframe by merging dataframe and roads geometry
+        road_geometry = roads[['ID_line', 'geometry']]
+        edges_df = edges_df.merge(road_geometry, on='ID_line')
+        geo_edges = gpd.GeoDataFrame(edges_df, crs=roads.crs, geometry='geometry')
+
+        # reverse order of nodes in line if a first node in line is not a source node
+        geo_edges = tools.reverse_nodes_order(geo_edges, points)
+
+        # reproject edges to 4326
+        geo_edges = geo_edges.to_crs({'init': 'epsg:4326'})
+
+        return geo_edges.to_json()
+
+    else:
+
+        return 'something went wrong'
+
+
+
+
+if __name__ == '__main__':
+    app.run()
 
 # write geodataframe to geojson
-path_to_file = os.path.join(data_dir, 'edges.geojson')
-with open(path_to_file, 'w') as f:
-    f.write(geo_edges.to_json())
-    f.close()
+# path_to_file = os.path.join(data_dir, 'edges.geojson')
+# with open(path_to_file, 'w') as f:
+#     f.write(geo_edges.to_json())
+#     f.close()
