@@ -17,6 +17,7 @@ from flask import Flask, request
 app = Flask(__name__)
 
 
+
 @app.route('/upload_data', methods=["GET", "POST"])
 def distribute_data_on_graph():
 
@@ -73,9 +74,7 @@ def distribute_data_on_graph():
 
     else:
 
-        return 'something went wrong'
-
-
+        return 'oops, something went wrong'
 
 
 if __name__ == '__main__':
