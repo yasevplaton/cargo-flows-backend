@@ -83,9 +83,3 @@ def distribute_data_on_graph():
 
 if __name__ == '__main__':
     app.run()
-
-# write geodataframe to geojson
-# path_to_file = os.path.join(data_dir, 'edges.geojson')
-# with open(path_to_file, 'w') as f:
-#     f.write(geo_edges.to_json())
-#     f.close()
