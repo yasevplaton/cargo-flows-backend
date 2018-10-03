@@ -14,8 +14,10 @@ import io
 from tools import tools
 
 from flask import Flask, request
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 @app.route('/upload_data', methods=["GET", "POST"])
 def distribute_data_on_graph():
