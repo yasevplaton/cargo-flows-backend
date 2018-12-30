@@ -14,7 +14,7 @@ def to_long_table(matrix, matrix_name):
     src_ids = []
     dest_ids = []
     values = []
-    long_table
+    types = []
 
     for src, dest_dic in matrix.iterrows():
         for dest, value in dest_dic.iteritems():
@@ -51,44 +51,70 @@ def create_long_table_with_name(long_table_with_id, look_up_table):
 
     return long_table_with_name
 
-chocolate = pd.read_csv(data_dir + "chocolateReal.csv", sep=';', index_col='nodeID')
-bananas = pd.read_csv(data_dir + "bananasReal.csv", sep=';', index_col='nodeID')
-oranges = pd.read_csv(data_dir + "orangesReal.csv", sep=';', index_col='nodeID')
-lut = pd.read_csv(data_dir + 'nodesID.csv', sep=',', index_col='OBJECTID')
+import os
+import pandas as pd
 
-goods = [
+work_dir = os.getcwd()
+cargo1 = pd.read_csv(os.path.join(work_dir, "data/cargo1.csv"), sep=';', index_col='nodeID')
+cargo2 = pd.read_csv(os.path.join(work_dir, "data/cargo2.csv"), sep=';', index_col='nodeID')
+cargo3 = pd.read_csv(os.path.join(work_dir, "data/cargo3.csv"), sep=';', index_col='nodeID')
+lut = pd.read_csv(os.path.join(work_dir, "data/look_up_table_Volga.csv"), sep=',', index_col='OBJECTID')
+
+cargos = [
     {
         'id': 0,
-        'name': 'chocolate',
-        'matrix': chocolate
+        'name': 'cargo1',
+        'matrix': cargo1
     },
     {
         'id': 1,
-        'name': 'bananas',
-        'matrix': bananas
+        'name': 'cargo2',
+        'matrix': cargo2
     },
     {
         'id': 2,
-        'name': 'oranges',
-        'matrix': oranges
+        'name': 'cargo3',
+        'matrix': cargo3
     }
 ]
 
-good_data_frames_array = []
+cargo_data_frames_array = []
 
-for good in goods:
-    matrix = good['matrix']
-    matrix_name = good['name']
-    good_long_table = to_long_table(matrix, matrix_name)
-    good_data_frames_array.append(good_long_table)
-    long_table = pd.concat(good_data_frames_array, ignore_index=True).sort_values(by=['src', 'dest']).copy()
+for cargo in cargos:
+    matrix = cargo['matrix']
+    matrix_name = cargo['name']
+    cargo_long_table = to_long_table(matrix, matrix_name)
+    cargo_data_frames_array.append(cargo_long_table)
+    long_table = pd.concat(cargo_data_frames_array, ignore_index=True).sort_values(by=['src', 'dest']).copy()
     long_table = create_long_table_with_name(long_table, lut).reset_index(drop=True)
 
 
-long_table.to_csv(data_dir + 'long_table.csv', index=False)
--
--
--
+long_table.to_csv(os.path.join(work_dir, "data/long_table_Volga.csv"), index=False) '''
 
+
+
+
+
+
+
+
+''' Code to generate random correspondence matrixes'''
+
+'''
+import pandas as pd
+import os
+import random
+
+work_dir = os.getcwd()
+cargo_3 = pd.read_excel(os.path.join(work_dir, 'data/cargo_test.xlsx'), sheet_name='cargo_test', index_col=0)
+
+for index, row in cargo_3.iterrows():
+    for col in cargo_3.columns.values:
+        if index == col:
+            row[col] = 0
+        else:
+            row[col] = random.randint(0, 10000)
+
+cargo_3.to_excel(os.path.join(work_dir, 'data/cargo3.xlsx'), 'cargo3')
 
 '''
