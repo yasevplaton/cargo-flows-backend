@@ -136,21 +136,21 @@ def distribute_values_on_graph(graph, goods_array, matrix_array):
         if ds['city'] != 'junction':
             for t, dt in graph.nodes.items():
                 if dt['city'] != 'junction':
-                    # create the shortest path between source and destination
-                    route = nx.shortest_path(graph, source=s, target=t, weight="length")
-                    # create path graph from found nodes
-                    path_graph = nx.path_graph(route)
-                    for e in path_graph.edges:
-                        # set counter for edge
-                        j = 0
-                        for g, m in zip(goods_array, matrix_array):
-                            # if source node is not destination node
-                            if s != t:
+                    # if source node is not destination node
+                    if s != t:
+                        # create the shortest path between source and destination
+                        route = nx.shortest_path(graph, source=s, target=t, weight="length")
+                        # create path graph from found nodes
+                        path_graph = nx.path_graph(route)
+                        for e in path_graph.edges:
+                            # set counter for edge
+                            j = 0
+                            for g, m in zip(goods_array, matrix_array):
                                 # increase value of specific type of good by value from matrix of this type of good
                                 graph.edges[e[0], e[1], j][g] = graph.edges[e[0], e[1], j][g] + m['data'].loc[s, t]
                                 # increment counter
                                 j += 1
-                    path_graph.clear()
+                        path_graph.clear()
 
     return graph
 

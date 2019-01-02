@@ -32,10 +32,10 @@ def distribute_data_on_graph():
 
         # set path to data directory
         # path to data directory at localhost for testing purposes
-        # data_dir = "data/"
+        data_dir = "data/"
 
         # path to data directory in production
-        data_dir = '/home/yasevplaton/linear-cartodiagram-backend/data/'
+        # data_dir = '/home/yasevplaton/linear-cartodiagram-backend/data/'
 
         # read files
         roads = gpd.read_file(os.path.join(data_dir, "shp/roads.shp"))
