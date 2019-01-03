@@ -12,6 +12,7 @@ import geopandas as gpd
 import os.path
 import io
 from tools import tools
+import datetime
 
 from flask import Flask, request
 from flask_cors import CORS
@@ -38,21 +39,30 @@ def distribute_data_on_graph():
         # data_dir = '/home/yasevplaton/linear-cartodiagram-backend/data/'
 
         # read files
-        roads = gpd.read_file(os.path.join(data_dir, "shp/roads.shp"))
-        points = gpd.read_file(os.path.join(data_dir, "shp/citiesJunctions.shp"))
-        lut = pd.read_csv(os.path.join(data_dir, "look_up_table.csv"), sep=",", index_col="OBJECTID")
+        roads = gpd.read_file(os.path.join(data_dir, "roadsVolga.geojson"))
+        points = gpd.read_file(os.path.join(data_dir, "pointsVolga.geojson"))
+        lut = pd.read_csv(os.path.join(data_dir, "look_up_table_Volga.csv"), sep=",", index_col="OBJECTID")
         flow_table = pd.read_csv(init_table, sep=",")
+
+        print('Data was loaded')
+        time1 = datetime.datetime.now()
+        print(time1)
 
         # convert flow table to array of correspondence matrixes
         matrix_array = tools.to_matrix_array(flow_table, lut)
 
+        print('Matrixes have been created')
+        time2 = datetime.datetime.now()
+        print(time2)
+        print(time2 - time1)
+
         # add additional fields to roads table
-        roads["src"] = 0
-        roads["dest"] = 0
-        roads["length"] = roads.length
+        # roads["src"] = 0
+        # roads["dest"] = 0
+        # roads["length"] = roads.length
 
         # bind points to roads
-        roads = tools.bind_points_to_lines(points, roads)
+        # roads = tools.bind_points_to_lines(points, roads)
 
         # collect types of goods
         goods = tools.collect_goods_types(matrix_array)
@@ -65,6 +75,11 @@ def distribute_data_on_graph():
 
         # distribute values of flows of goods on graph's edges
         net = tools.distribute_values_on_graph(net, goods, matrix_array)
+
+        print('Values have been distributed on graph')
+        time3 = datetime.datetime.now()
+        print(time3)
+        print(time3 - time2)
 
         # create dataframe from multigraph
         edges_df = tools.create_dataframe_from_graph(net, goods)
@@ -79,6 +94,11 @@ def distribute_data_on_graph():
 
         # reproject edges to 4326
         geo_edges = geo_edges.to_crs({'init': 'epsg:4326'})
+
+        print('GeoEdges Dataframe has been created')
+        time4 = datetime.datetime.now()
+        print(time4)
+        print(time4 - time3)
 
         return geo_edges.to_json()
 
