@@ -48,6 +48,9 @@ def distribute_data_on_graph():
         time1 = datetime.datetime.now()
         print(time1)
 
+        roads = roads.to_crs({'init': 'epsg:3857'})
+        points = points.to_crs({'init': 'epsg:3857'})
+
         # convert flow table to array of correspondence matrixes
         matrix_array = tools.to_matrix_array(flow_table, lut)
 
