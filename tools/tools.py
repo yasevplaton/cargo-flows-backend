@@ -13,7 +13,7 @@ Block of functions to convert initial data from long form to form of array of co
 
 # function to find node id by its name
 def find_node_id(look_up_table, node_name):
-    node_id = look_up_table[look_up_table.NAME == node_name].index.values[0]
+    node_id = look_up_table[look_up_table.name_rus == node_name].index.values[0]
     return node_id
 
 
